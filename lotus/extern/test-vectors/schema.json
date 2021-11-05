@@ -1,0 +1,440 @@
+{
+  "$id": "https://filecoin.io/oni/schemas/test-vector.json",
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "title": "a filecoin VM test vector",
+  "type": "object",
+  "definitions": {
+    "base64": {
+      "title": "base64 encoded value",
+      "description": "a standard base64 encoded value, as defined in RFC 4648",
+      "type": "string",
+      "pattern": "^[0-9a-zA-Z+/=]*$",
+      "examples": [
+        "igBCAGRCAGQAQgAKAUIAyEIACgBA",
+        ""
+      ]
+    },
+    "meta": {
+      "title": "metadata",
+      "description": "metadata about this test vector, such as its id, version, data about its generation, etc.; metadata is informational and does not affect driver execution",
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "id": {
+          "title": "a unique identifier that identifies this test vector",
+          "type": "string"
+        },
+        "version": {
+          "title": "the version of this test vector",
+          "type": "string"
+        },
+        "description": {
+          "title": "an optional description of the test vector",
+          "type": "string"
+        },
+        "comment": {
+          "title": "optional comments about this test vector, e.g. applicability, hints, rationale, etc.",
+          "type": "string"
+        },
+        "gen": {
+          "title": "generation metadata",
+          "description": "metadata about how this test vector was generated",
+          "type": "array",
+          "items": {
+            "$ref": "#/definitions/gen_data"
+          }
+        },
+        "tags": {
+          "title": "an optional means of grouping test vectors together",
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        }
+      }
+    },
+    "cid": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "/"
+      ],
+      "properties": {
+        "/": {
+          "type": "string"
+        }
+      }
+    },
+    "gen_data": {
+      "title": "generation metadata entry",
+      "description": "",
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "source": {
+          "type": "string",
+          "examples": [
+            "lotus",
+            "dsl"
+          ]
+        },
+        "version": {
+          "type": "string",
+          "examples": [
+            "0.4.1+git.27d74337+api0.8.1"
+          ]
+        }
+      }
+    },
+    "state_tree": {
+      "additionalProperties": false,
+      "required": [
+        "root_cid"
+      ],
+      "properties": {
+        "root_cid": {
+          "$ref": "#/definitions/cid"
+        }
+      }
+    },
+    "randomness": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "properties": {
+          "on": {
+            "type": "array",
+            "items": [
+              {
+                "title": "randomness kind",
+                "type": "string",
+                "enum": [
+                  "chain",
+                  "beacon"
+                ]
+              },
+              {
+                "title": "domain separation tag",
+                "type": "number"
+              },
+              {
+                "title": "epoch",
+                "type": "number"
+              },
+              {
+                "title": "entropy",
+                "$ref": "#/definitions/base64"
+              }
+            ]
+          },
+          "ret": {
+            "title": "returned randomness",
+            "$ref": "#/definitions/base64"
+          }
+        }
+      }
+    },
+    "receipt": {
+      "type": "object",
+      "required": [
+        "exit_code",
+        "return",
+        "gas_used"
+      ],
+      "additionalProperties": false,
+      "properties": {
+        "exit_code": {
+          "type": "number"
+        },
+        "return": {
+          "$ref": "#/definitions/base64"
+        },
+        "gas_used": {
+          "type": "number"
+        }
+      }
+    },
+    "preconditions": {
+      "title": "execution preconditions",
+      "description": "preconditions that need to be applied and satisfied before this test vector can be executed",
+      "additionalProperties": false,
+      "properties": {
+        "variants": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "additionalProperties": false,
+            "properties": {
+              "id": {
+                "title": "codename of the protocol version",
+                "type": "string"
+              },
+              "epoch": {
+                "title": "epoch at which to run",
+                "type": "integer"
+              },
+              "nv": {
+                "title": "network version with which to run",
+                "type": "integer"
+              }
+            }
+          }
+        },
+        "circ_supply": {
+          "type": "number"
+        },
+        "basefee": {
+          "type": "number"
+        },
+        "state_tree": {
+          "title": "state tree to seed",
+          "description": "state tree to seed before applying this test vector; mapping of actor addresses => serialized state",
+          "$ref": "#/definitions/state_tree"
+        }
+      }
+    },
+    "postconditions": {
+      "title": "execution preconditions",
+      "description": "postconditions that need to be satisfied after execution for this test vector to pass",
+      "additionalProperties": false,
+      "properties": {
+        "apply_message_failures": {
+          "title": "messages that failed to be applied",
+          "description": "indexes of messages in apply_messages that failed to be applied",
+          "type": "array",
+          "additionalItems": false,
+          "items": {
+            "type": "integer"
+          }
+        },
+        "state_tree": {
+          "title": "state tree postconditions",
+          "description": "state tree postconditions that must be true for this test vector to pass",
+          "$ref": "#/definitions/state_tree"
+        },
+        "receipts": {
+          "title": "receipts to match",
+          "description": "receipts to match, required when using messages-class test vectors; length of this array MUST be equal to length of apply_messages",
+          "type": "array",
+          "additionalItems": false,
+          "items": {
+            "oneOf": [
+              {
+                "type": "null"
+              },
+              {
+                "$ref": "#/definitions/receipt"
+              }
+            ]
+          }
+        },
+        "receipts_roots": {
+          "title": "receipts roots for the applied tipsets",
+          "type": "array",
+          "additionalItems": false,
+          "items": {
+            "$ref": "#/definitions/cid"
+          }
+        }
+      }
+    },
+    "diagnostics": {
+      "title": "execution diagnostics",
+      "description": "diagnostics associated with the state change performed in the test",
+      "additionalProperties": false,
+      "properties": {
+        "format": {
+          "title": "diagnostics format",
+          "description": "version / opaque string indicating the format diagnostics have been serialized to",
+          "type": "string"
+        },
+        "data": {
+          "title": "diagnostics data",
+          "description": "serialization of diagnostic data internally represented per format",
+          "$ref": "#/definitions/base64"
+        }
+      }
+    },
+    "apply_messages": {
+      "title": "messages to apply",
+      "type": "array",
+      "items": {
+        "type": "object",
+        "required": [
+          "bytes",
+          "epoch"
+        ],
+        "additionalProperties": false,
+        "properties": {
+          "bytes": {
+            "$ref": "#/definitions/base64"
+          },
+          "epoch": {
+            "type": "integer"
+          }
+        }
+      }
+    },
+    "apply_tipsets": {
+      "title": "tipsets to apply",
+      "type": "object",
+      "required": [
+        "epoch",
+        "basefee",
+        "blocks"
+      ],
+      "additionalProperties": false,
+      "properties": {
+        "epoch": {
+          "type": "number"
+        },
+        "basefee": {
+          "description": "this is a big.Int",
+          "type": "number"
+        },
+        "blocks": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "additionalProperties": false,
+            "required": [
+              "miner_addr",
+              "win_count",
+              "messages"
+            ],
+            "properties": {
+              "miner_addr": {
+                "type": "string"
+              },
+              "win_count": {
+                "type": "number"
+              },
+              "messages": {
+                "$ref": "#/definitions/base64"
+              }
+            }
+          }
+        }
+      },
+      "items": {
+        "type": "object",
+        "required": [
+          "bytes",
+          "epoch"
+        ],
+        "additionalProperties": false,
+        "properties": {
+          "bytes": {
+            "$ref": "#/definitions/base64"
+          },
+          "epoch": {
+            "type": "integer"
+          }
+        }
+      }
+    }
+  },
+  "required": [
+    "class"
+  ],
+  "properties": {
+    "class": {
+      "title": "test vector class",
+      "description": "test vector class; depending on the value, the apply_* property to provide (and its schema) will vary; the relevant apply property is apply_[class]",
+      "type": "string",
+      "enum": [
+        "message",
+        "tipset",
+        "blockseq"
+      ]
+    },
+    "selector": {
+      "title": "predicates the driver can use to determine if this test vector is relevant given the capabilities/features of the underlying implementation and/or test environment",
+      "type": "object",
+      "additionalProperties": {
+        "type": "string"
+      },
+      "examples": [
+        {
+          "chaos_actor": "true"
+        },
+        {
+          "chaos_actor": "true",
+          "feature": "value"
+        }
+      ]
+    },
+    "hints": {
+      "type": "array",
+      "title": "hints are flags that convey information to the driver",
+      "description": "use hints to express facts like this vector is knowingly incorrect (e.g. when the reference implementation is broken), that drivers should negate the postconditions (i.e. test that they are NOT the ones expressed in the vector), etc.",
+      "items": {
+        "type": "string"
+      },
+      "examples": [
+        [
+          "incorrect",
+          "negate"
+        ]
+      ]
+    },
+    "_meta": {
+      "$ref": "#/definitions/meta"
+    },
+    "car": {
+      "title": "car containing state trees",
+      "description": "the gzipped, base64 CAR containing the pre- and post-condition state trees for this test vector",
+      "$ref": "#/definitions/base64"
+    },
+    "randomness": {
+      "title": "randomness to be replayed during the execution of the test vector",
+      "$ref": "#/definitions/randomness"
+    },
+    "preconditions": {
+      "$ref": "#/definitions/preconditions"
+    },
+    "postconditions": {
+      "$ref": "#/definitions/postconditions"
+    }
+  },
+  "allOf": [
+    {
+      "if": {
+        "properties": {
+          "class": {
+            "const": "messages"
+          }
+        }
+      },
+      "then": {
+        "required": [
+          "apply_messages"
+        ],
+        "properties": {
+          "apply_messages": {
+            "$ref": "#/definitions/apply_messages"
+          }
+        }
+      }
+    },
+    {
+      "if": {
+        "properties": {
+          "class": {
+            "const": "tipset"
+          }
+        }
+      },
+      "then": {
+        "required": [
+          "apply_tipsets"
+        ],
+        "properties": {
+          "apply_messages": {
+            "$ref": "#/definitions/apply_tipsets"
+          }
+        }
+      }
+    }
+  ]
+}

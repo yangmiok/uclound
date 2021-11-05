@@ -1,0 +1,45 @@
+[package]
+name = "storage-proofs-post"
+version = "10.0.0"
+authors = ["dignifiedquire <me@dignifiedquire.com>"]
+license = "MIT OR Apache-2.0"
+description = "Proofs of Space Time"
+edition = "2018"
+repository = "https://github.com/filecoin-project/rust-fil-proofs"
+readme = "README.md"
+
+[dependencies]
+storage-proofs-core = { path = "../storage-proofs-core", version = "^10.0.0", default-features = false}
+filecoin-hashers = { path = "../filecoin-hashers", version = "^5.0.0", default-features = false, features = ["poseidon", "sha256"]}
+rand = "0.8"
+merkletree = { path = "../../merkle_light"}
+byteorder = "1"
+crossbeam = "0.8"
+sha2 = "0.9.1"
+rayon = "1.0.0"
+serde = { version = "1.0", features = ["derive"]}
+blake2b_simd = "0.5"
+blake2s_simd = "0.5"
+ff = "0.11.0"
+bellperson = "0.17.0"
+log = "0.4.7"
+hex = "0.4.0"
+generic-array = "0.14.4"
+anyhow = "1.0.23"
+neptune = { version = "5.0.0", features = ["arity2", "arity4", "arity8", "arity11", "arity16", "arity24", "arity36"] }
+num_cpus = "1.10.1"
+fr32 = { path = "../fr32", version = "^3.0.0", default-features = false }
+blstrs = "0.4.0"
+base64-url = "1.4.10"
+us3 = { path = "../../us3" }
+
+[dev-dependencies]
+tempfile = "3"
+pretty_assertions = "0.6.1"
+filecoin-hashers = { path = "../filecoin-hashers", version = "^5.0.0", default-features = false, features = ["poseidon", "sha256", "blake2s"]}
+rand_xorshift = "0.3.0"
+
+[features]
+default = ["opencl"]
+cuda = ["storage-proofs-core/cuda", "filecoin-hashers/cuda", "fr32/cuda", "neptune/cuda"]
+opencl = ["storage-proofs-core/opencl", "filecoin-hashers/opencl", "fr32/opencl", "neptune/opencl"]
