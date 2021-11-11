@@ -643,7 +643,7 @@ func submitPaths(paths []*req) error {
 
 		if !strings.Contains(v.Path, ".genesis-sectors") {
 			//上传完成后自动清理文件逻辑
-			//os.Remove(v.Path)
+			os.Remove(v.Path)
 		}
 
 	}
