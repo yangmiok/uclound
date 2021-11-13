@@ -4,7 +4,6 @@ import (
 	"context"
 	"crypto/rand"
 	"fmt"
-	"os"
 	"path/filepath"
 
 	"golang.org/x/xerrors"
@@ -31,6 +30,7 @@ func (m *Manager) CheckProvable(ctx context.Context, pp abi.RegisteredPoStProof,
 		return nil, err
 	}
 
+	checkList := make(map[string]SectorFile, len(sectors)*fileCount(ssize)*2)
 	// TODO: More better checks
 	for _, sector := range sectors {
 		err := func() error {
@@ -61,70 +61,81 @@ func (m *Manager) CheckProvable(ctx context.Context, pp abi.RegisteredPoStProof,
 				return nil
 			}
 
-			toCheck := map[string]int64{
-				lp.Sealed:                        1,
-				filepath.Join(lp.Cache, "p_aux"): 0,
-			}
-
-			addCachePathsForSectorSize(toCheck, lp.Cache, ssize)
-
-			for p, sz := range toCheck {
-				st, err := os.Stat(p)
-				if err != nil {
-					log.Warnw("CheckProvable Sector FAULT: sector file stat error", "sector", sector, "sealed", lp.Sealed, "cache", lp.Cache, "file", p, "err", err)
-					bad[sector.ID] = fmt.Sprintf("%s", err)
-					return nil
-				}
-
-				if sz != 0 {
-					if st.Size() != int64(ssize)*sz {
-						log.Warnw("CheckProvable Sector FAULT: sector file is wrong size", "sector", sector, "sealed", lp.Sealed, "cache", lp.Cache, "file", p, "size", st.Size(), "expectSize", int64(ssize)*sz)
-						bad[sector.ID] = fmt.Sprintf("%s is wrong size (got %d, expect %d)", p, st.Size(), int64(ssize)*sz)
-						return nil
-					}
-				}
+			//toCheck := map[string]int64{
+			//	lp.Sealed:                        1,
+			//	filepath.Join(lp.Cache, "t_aux"): 0,
+			//	filepath.Join(lp.Cache, "p_aux"): 0,
+			//}
+			//
+			//addCachePathsForSectorSize(toCheck, lp.Cache, ssize)
+			//
+			//for p, sz := range toCheck {
+			//	st, err := os.Stat(p)
+			//	if err != nil {
+			//		log.Warnw("CheckProvable Sector FAULT: sector file stat error", "sector", sector, "sealed", lp.Sealed, "cache", lp.Cache, "file", p, "err", err)
+			//		bad[sector.ID] = fmt.Sprintf("%s", err)
+			//		return nil
+			//	}
+			//
+			//	if sz != 0 {
+			//		if st.Size() != int64(ssize)*sz {
+			//			log.Warnw("CheckProvable Sector FAULT: sector file is wrong size", "sector", sector, "sealed", lp.Sealed, "cache", lp.Cache, "file", p, "size", st.Size(), "expectSize", int64(ssize)*sz)
+			//			bad[sector.ID] = fmt.Sprintf("%s is wrong size (got %d, expect %d)", p, st.Size(), int64(ssize)*sz)
+			//			return nil
+			//		}
+			//	}
+			//}
+			if rg == nil {
+				addCheckList(lp, sector.ID, ssize, checkList)
 			}
 
 			if rg != nil {
-				wpp, err := sector.ProofType.RegisteredWindowPoStProof()
-				if err != nil {
-					return err
-				}
+				checkListOneSector := make(map[string]SectorFile, fileCount(ssize)*2)
+				addCheckList(lp, sector.ID, ssize, checkListOneSector)
+				l_before := len(bad)
+				checkBad(bad, checkListOneSector)
+				l_after := len(bad)
+				if l_after == l_before {
+					wpp, err := sector.ProofType.RegisteredWindowPoStProof()
+					if err != nil {
+						return err
+					}
 
-				var pr abi.PoStRandomness = make([]byte, abi.RandomnessLength)
-				_, _ = rand.Read(pr)
-				pr[31] &= 0x3f
+					var pr abi.PoStRandomness = make([]byte, abi.RandomnessLength)
+					_, _ = rand.Read(pr)
+					pr[31] &= 0x3f
 
-				ch, err := ffi.GeneratePoStFallbackSectorChallenges(wpp, sector.ID.Miner, pr, []abi.SectorNumber{
-					sector.ID.Number,
-				})
-				if err != nil {
-					log.Warnw("CheckProvable Sector FAULT: generating challenges", "sector", sector, "sealed", lp.Sealed, "cache", lp.Cache, "err", err)
-					bad[sector.ID] = fmt.Sprintf("generating fallback challenges: %s", err)
-					return nil
-				}
+					ch, err := ffi.GeneratePoStFallbackSectorChallenges(wpp, sector.ID.Miner, pr, []abi.SectorNumber{
+						sector.ID.Number,
+					})
+					if err != nil {
+						log.Warnw("CheckProvable Sector FAULT: generating challenges", "sector", sector, "sealed", lp.Sealed, "cache", lp.Cache, "err", err)
+						bad[sector.ID] = fmt.Sprintf("generating fallback challenges: %s", err)
+						return nil
+					}
 
-				commr, err := rg(ctx, sector.ID)
-				if err != nil {
-					log.Warnw("CheckProvable Sector FAULT: getting commR", "sector", sector, "sealed", lp.Sealed, "cache", lp.Cache, "err", err)
-					bad[sector.ID] = fmt.Sprintf("getting commR: %s", err)
-					return nil
-				}
+					commr, err := rg(ctx, sector.ID)
+					if err != nil {
+						log.Warnw("CheckProvable Sector FAULT: getting commR", "sector", sector, "sealed", lp.Sealed, "cache", lp.Cache, "err", err)
+						bad[sector.ID] = fmt.Sprintf("getting commR: %s", err)
+						return nil
+					}
 
-				_, err = ffi.GenerateSingleVanillaProof(ffi.PrivateSectorInfo{
-					SectorInfo: proof.SectorInfo{
-						SealProof:    sector.ProofType,
-						SectorNumber: sector.ID.Number,
-						SealedCID:    commr,
-					},
-					CacheDirPath:     lp.Cache,
-					PoStProofType:    wpp,
-					SealedSectorPath: lp.Sealed,
-				}, ch.Challenges[sector.ID.Number])
-				if err != nil {
-					log.Warnw("CheckProvable Sector FAULT: generating vanilla proof", "sector", sector, "sealed", lp.Sealed, "cache", lp.Cache, "err", err)
-					bad[sector.ID] = fmt.Sprintf("generating vanilla proof: %s", err)
-					return nil
+					_, err = ffi.GenerateSingleVanillaProof(ffi.PrivateSectorInfo{
+						SectorInfo: proof.SectorInfo{
+							SealProof:    sector.ProofType,
+							SectorNumber: sector.ID.Number,
+							SealedCID:    commr,
+						},
+						CacheDirPath:     lp.Cache,
+						PoStProofType:    wpp,
+						SealedSectorPath: lp.Sealed,
+					}, ch.Challenges[sector.ID.Number])
+					if err != nil {
+						log.Warnw("CheckProvable Sector FAULT: generating vanilla proof", "sector", sector, "sealed", lp.Sealed, "cache", lp.Cache, "err", err)
+						bad[sector.ID] = fmt.Sprintf("generating vanilla proof: %s", err)
+						return nil
+					}
 				}
 			}
 
@@ -134,7 +145,9 @@ func (m *Manager) CheckProvable(ctx context.Context, pp abi.RegisteredPoStProof,
 			return nil, err
 		}
 	}
-
+	if rg == nil {
+		checkBad(bad, checkList)
+	}
 	return bad, nil
 }
 
