@@ -24,7 +24,6 @@ import (
 	"github.com/filecoin-project/specs-storage/storage"
 
 	"github.com/hashicorp/go-multierror"
-	"github.com/ufilesdk-dev/us3-qiniu-go-sdk/syncdata/operation"
 	"golang.org/x/xerrors"
 )
 
@@ -215,7 +214,7 @@ func (r *Remote) acquireFromRemote(ctx context.Context, s abi.SectorID, fileType
 				return "", xerrors.Errorf("fetch move error (storage %s) %s -> %s: %w", info.ID, tempDest, dest, err)
 			}
 			//上传逻辑
-			if os.Getenv("US3") != "" {
+			/*if os.Getenv("US3") != "" {
 				var filePathWalkDir = func(root string) ([]string, error) {
 					var files []string
 					err := filepath.Walk(root, func(path string, info os.FileInfo, err error) error {
@@ -242,6 +241,7 @@ func (r *Remote) acquireFromRemote(ctx context.Context, s abi.SectorID, fileType
 					os.Remove(v)
 				}
 			}
+			*/
 
 			if merr != nil {
 				log.Warnw("acquireFromRemote encountered errors when fetching sector from remote", "errors", merr)
